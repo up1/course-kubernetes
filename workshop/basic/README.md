@@ -42,8 +42,13 @@ $docker image build -t api:1.0 ./api
 
 Create and start container
 ```
-$docker container run -d -p 8080:8080 api:1.0
+$docker network create demo
+$docker container run -d -p 27017:27017 --name db --network demo db:1.0
+$docker container run -d -p 8080:8080 --name api --network demo -e MONGODB_URI="mongodb://admin:password@db:27017/?directConnection=true" api:1.0
 ```
 
 Access in web browser
-* http://localhost:8080
+* http://localhost:8080/health
+* http://localhost:8080/products
+
+
