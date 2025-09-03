@@ -8,7 +8,32 @@
 * Web with Go
 * Database with MongoDB
 
-## 2. Build image and start container of API
+## 2. Build image and start container of MongoDB
+Build image
+```
+$docker image build -t db:1.0 ./mongo
+```
+
+Create and start container
+```
+$docker container run -d -p 27017:27017 --name db db:1.0
+$docker container ps
+```
+
+Access to container
+```
+$docker container exec -it db bash
+```
+
+Check data in mongodb
+```
+$mongosh --username admin --password password
+$use products_db;
+$db.products.find()
+```
+
+
+## 3. Build image and start container of API
 
 Build image
 ```
@@ -22,4 +47,3 @@ $docker container run -d -p 8080:8080 api:1.0
 
 Access in web browser
 * http://localhost:8080
-
