@@ -51,4 +51,33 @@ Access in web browser
 * http://localhost:8080/health
 * http://localhost:8080/products
 
+## 4. Working with Docker compose
+
+Build image
+```
+$docker compose build db
+$docker compose build api
+```
+
+Create and start container
+```
+$docker compose up -d db
+$docker compose up -d api
+$docker compose ps
+```
+
+Access in web browser
+* http://localhost:8080/health
+* http://localhost:8080/products
+
+Start all in a single line
+```
+$docker compose up -d --build
+$docker compose ps
+```
+
+Delete all containers
+```
+$docker compose down
+```
 
