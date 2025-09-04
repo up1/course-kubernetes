@@ -1,5 +1,6 @@
 services:
   api:
+    image: demo-go-api:1.0
     build:
       context: ./api
       dockerfile: Dockerfile
@@ -11,6 +12,7 @@ services:
       db:
         condition: service_healthy
   db:
+    image: demo-mongo:1.0
     build:
       context: ./mongo
       dockerfile: Dockerfile
@@ -25,4 +27,5 @@ services:
       timeout: 5s
       retries: 5
       start_period: 5s
-      
+    volumes:
+      - ./data:/data/db
