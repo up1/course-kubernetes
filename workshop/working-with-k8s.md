@@ -93,3 +93,24 @@ Access to WebConsole
 $minikube dashboard
 ```
 
+## 7. Add monitoring system
+```
+$helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+$helm repo update
+
+$kubectl create namespace prometheus
+$helm install prometheus prometheus-community/kube-prometheus-stack -n prometheus
+
+$kubectl get service -n prometheus
+$kubectl get pods -n prometheus
+```
+
+Expose port of grafana
+```
+$kubectl port-forward -n prometheus svc/prometheus-grafana 8080:80
+```
+
+Access to WebConsole
+* http://localhost:8080
+  * user=admin
+  * password=prom-operator
