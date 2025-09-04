@@ -68,6 +68,7 @@ $docker compose ps
 
 Access in web browser
 * http://localhost:8080/health
+* http://localhost:8080/metrics
 * http://localhost:8080/products
 
 Start all in a single line

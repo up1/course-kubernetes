@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	// Add the MongoDB driver packages
+	"github.com/zsais/go-gin-prometheus"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -33,7 +34,13 @@ func main() {
 		Client: mongoClient,
 	}
 
-	r := gin.Default()
+	r := gin.New()
+
+	// NewWithConfig is the recommended way to initialize the middleware
+	p := ginprometheus.NewWithConfig(ginprometheus.Config{
+		Subsystem: "gin",
+	})
+	p.Use(r)
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "OK",
