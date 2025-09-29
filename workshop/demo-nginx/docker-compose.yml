@@ -1,0 +1,9 @@
+services:
+  web:
+    image: somkiat/myweb:2000
+    container_name: myweb    
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "7777:80"
