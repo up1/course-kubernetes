@@ -1,0 +1,294 @@
+---
+- name: Prepare all nodes (control-plane + workers)
+  hosts: all
+  become: true
+  vars:
+    container_runtime: containerd
+    kubernetes_version: "1.34.0"
+    pod_network_cidr: "10.244.0.0/16"
+    control_plane_endpoint: "k8s-api.mycompany.local:6443"
+  tasks:
+    - name: Disable swap
+      ansible.builtin.command: swapoff -a
+    - name: Remove swap entry from fstab
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        regexp: '\s+swap\s+'
+        state: absent
+    - name: Load br_netfilter module
+      ansible.builtin.modprobe:
+        name: br_netfilter
+    - name: Persist modules
+      ansible.builtin.copy:
+        dest: /etc/modules-load.d/k8s.conf
+        content: |
+          br_netfilter
+    - name: Set sysctl params for Kubernetes networking
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/k8s.conf
+        content: |
+          net.bridge.bridge-nf-call-iptables  = 1
+          net.ipv4.ip_forward                 = 1
+          net.bridge.bridge-nf-call-ip6tables = 1
+    - name: Apply sysctl changes
+      ansible.builtin.shell: sysctl --system
+    
+    - name: Create directory for apt keyrings
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+      when: ansible_os_family == "Debian"
+    
+    - name: Download Kubernetes GPG key
+      ansible.builtin.get_url:
+        url: https://pkgs.k8s.io/core:/stable:/v1.34/deb/Release.key
+        dest: /etc/apt/keyrings/kubernetes-apt-keyring.asc
+        mode: '0644'
+      when: ansible_os_family == "Debian"
+    
+    - name: Add Kubernetes apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.asc] https://pkgs.k8s.io/core:/stable:/v1.34/deb/ /"
+        state: present
+        filename: kubernetes
+      when: ansible_os_family == "Debian"
+    
+    - name: Update package cache
+      ansible.builtin.package:
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+    
+    - name: Install container runtime (containerd)
+      # This can be expanded depending on OS/distribution
+      ansible.builtin.package:
+        name:
+          - containerd
+        state: present
+    - name: Configure containerd and restart
+      ansible.builtin.shell: |
+        mkdir -p /etc/containerd && containerd config default > /etc/containerd/config.toml
+        sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+        systemctl restart containerd
+        systemctl enable containerd
+    - name: Install kubeadm, kubelet, kubectl
+      ansible.builtin.package:
+        name:
+          - kubeadm
+          - kubelet
+          - kubectl
+        state: present
+      when: ansible_os_family == "Debian"
+    
+    - name: Install kubeadm, kubelet, kubectl (RedHat family)
+      ansible.builtin.package:
+        name:
+          - kubeadm
+          - kubelet
+          - kubectl
+        state: present
+      when: ansible_os_family == "RedHat"
+    
+    - name: Hold Kubernetes packages (prevent auto-upgrade)
+      ansible.builtin.dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop:
+        - kubeadm
+        - kubelet
+        - kubectl
+      when: ansible_os_family == "Debian"
+    
+    - name: Enable kubelet service
+      ansible.builtin.systemd:
+        name: kubelet
+        enabled: true
+        state: started
+
+- name: Initialize first control plane node
+  hosts: control_plane_first
+  become: true
+  vars:
+    pod_network_cidr: "10.244.0.0/16"
+  tasks:
+    - name: Check if cluster is already initialized
+      ansible.builtin.stat:
+        path: /etc/kubernetes/pki/ca.crt
+      register: cluster_initialized
+    
+    - name: Reset kubeadm if needed (cleanup any previous failed attempts)
+      ansible.builtin.command: kubeadm reset --force
+      when: not cluster_initialized.stat.exists
+      ignore_errors: yes
+    
+    - name: Run kubeadm init
+      ansible.builtin.command: |
+        kubeadm init \
+          --control-plane-endpoint {{ control_plane_endpoint }} \
+          --upload-certs \
+          --pod-network-cidr {{ pod_network_cidr }} \
+          --kubernetes-version v{{ kubernetes_version }}
+      args:
+        creates: /etc/kubernetes/pki/ca.crt
+    - name: Setup kubeconfig for ubuntu (or ansible_user)
+      ansible.builtin.shell: |
+        mkdir -p $HOME/.kube
+        sudo cp -f  /etc/kubernetes/admin.conf $HOME/.kube/config
+        sudo chown $(id -u):$(id -g) $HOME/.kube/config
+      become_user: "{{ ansible_user }}"
+    - name: Output join commands
+      ansible.builtin.command: kubeadm token create --print-join-command
+      register: join_cmd_output
+      become: true
+      become_user: root
+    - name: Save join commands to file
+      ansible.builtin.copy:
+        dest: /root/kubeadm-join-cmds.txt
+        content: "{{ join_cmd_output.stdout }}"
+
+- name: Install CNI plugin on first control plane node
+  hosts: control_plane_first
+  become: true
+  tasks:
+    - name: Install Calico (example)
+      ansible.builtin.shell: |
+        kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+      args:
+        chdir: /root
+      register: calico_apply
+
+- name: Fetch join command file from first control plane to local
+  hosts: control_plane_first
+  become: true
+  tasks:
+    - name: Fetch join file from first control plane to Ansible controller
+      ansible.builtin.fetch:
+        src: /root/kubeadm-join-cmds.txt
+        dest: /tmp/kubeadm-join-cmds.txt
+        flat: yes
+
+- name: Fetch certificates from first control plane
+  hosts: control_plane_first
+  become: true
+  tasks:
+    - name: Fetch CA certificate
+      ansible.builtin.fetch:
+        src: /etc/kubernetes/pki/ca.crt
+        dest: /tmp/k8s-certs/ca.crt
+        flat: yes
+    - name: Fetch CA key
+      ansible.builtin.fetch:
+        src: /etc/kubernetes/pki/ca.key
+        dest: /tmp/k8s-certs/ca.key
+        flat: yes
+    - name: Fetch SA key
+      ansible.builtin.fetch:
+        src: /etc/kubernetes/pki/sa.key
+        dest: /tmp/k8s-certs/sa.key
+        flat: yes
+    - name: Fetch SA pub
+      ansible.builtin.fetch:
+        src: /etc/kubernetes/pki/sa.pub
+        dest: /tmp/k8s-certs/sa.pub
+        flat: yes
+    - name: Fetch front-proxy CA certificate
+      ansible.builtin.fetch:
+        src: /etc/kubernetes/pki/front-proxy-ca.crt
+        dest: /tmp/k8s-certs/front-proxy-ca.crt
+        flat: yes
+    - name: Fetch front-proxy CA key
+      ansible.builtin.fetch:
+        src: /etc/kubernetes/pki/front-proxy-ca.key
+        dest: /tmp/k8s-certs/front-proxy-ca.key
+        flat: yes
+    - name: Fetch etcd CA certificate
+      ansible.builtin.fetch:
+        src: /etc/kubernetes/pki/etcd/ca.crt
+        dest: /tmp/k8s-certs/etcd-ca.crt
+        flat: yes
+    - name: Fetch etcd CA key
+      ansible.builtin.fetch:
+        src: /etc/kubernetes/pki/etcd/ca.key
+        dest: /tmp/k8s-certs/etcd-ca.key
+        flat: yes
+
+- name: Join additional control plane nodes
+  hosts: control_plane_rest
+  become: true
+  tasks:
+    - name: Create PKI directory
+      ansible.builtin.file:
+        path: /etc/kubernetes/pki/etcd
+        state: directory
+        mode: '0755'
+    - name: Copy CA certificate
+      ansible.builtin.copy:
+        src: /tmp/k8s-certs/ca.crt
+        dest: /etc/kubernetes/pki/ca.crt
+        mode: '0644'
+    - name: Copy CA key
+      ansible.builtin.copy:
+        src: /tmp/k8s-certs/ca.key
+        dest: /etc/kubernetes/pki/ca.key
+        mode: '0600'
+    - name: Copy SA key
+      ansible.builtin.copy:
+        src: /tmp/k8s-certs/sa.key
+        dest: /etc/kubernetes/pki/sa.key
+        mode: '0600'
+    - name: Copy SA pub
+      ansible.builtin.copy:
+        src: /tmp/k8s-certs/sa.pub
+        dest: /etc/kubernetes/pki/sa.pub
+        mode: '0644'
+    - name: Copy front-proxy CA certificate
+      ansible.builtin.copy:
+        src: /tmp/k8s-certs/front-proxy-ca.crt
+        dest: /etc/kubernetes/pki/front-proxy-ca.crt
+        mode: '0644'
+    - name: Copy front-proxy CA key
+      ansible.builtin.copy:
+        src: /tmp/k8s-certs/front-proxy-ca.key
+        dest: /etc/kubernetes/pki/front-proxy-ca.key
+        mode: '0600'
+    - name: Copy etcd CA certificate
+      ansible.builtin.copy:
+        src: /tmp/k8s-certs/etcd-ca.crt
+        dest: /etc/kubernetes/pki/etcd/ca.crt
+        mode: '0644'
+    - name: Copy etcd CA key
+      ansible.builtin.copy:
+        src: /tmp/k8s-certs/etcd-ca.key
+        dest: /etc/kubernetes/pki/etcd/ca.key
+        mode: '0600'
+    - name: Copy join file to additional control plane nodes
+      ansible.builtin.copy:
+        src: /tmp/kubeadm-join-cmds.txt
+        dest: /tmp/kubeadm-join-cmds.txt
+        mode: '0644'
+    - name: Read join command
+      ansible.builtin.slurp:
+        src: /tmp/kubeadm-join-cmds.txt
+      register: join_file
+    - name: Run kubeadm join for control plane
+      ansible.builtin.command: "{{ (join_file.content | b64decode).split('\n')[0] }} --control-plane"
+      args:
+        creates: /etc/kubernetes/kubelet.conf
+
+- name: Join worker nodes
+  hosts: workers
+  become: true
+  tasks:
+    - name: Copy join file to worker nodes
+      ansible.builtin.copy:
+        src: /tmp/kubeadm-join-cmds.txt
+        dest: /tmp/kubeadm-join-cmds.txt
+        mode: '0644'
+    - name: Read join command from file
+      ansible.builtin.slurp:
+        src: /tmp/kubeadm-join-cmds.txt
+      register: join_file
+    - name: Run kubeadm join for worker
+      ansible.builtin.command: "{{ (join_file.content | b64decode).strip() }}"
+      args:
+        creates: /etc/kubernetes/kubelet.conf

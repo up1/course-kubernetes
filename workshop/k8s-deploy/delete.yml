@@ -1,0 +1,64 @@
+---
+- name: Reset all nodes from cluster
+  hosts: all
+  become: true
+  tasks:
+    - name: Reset Kubernetes cluster
+      ansible.builtin.command: kubeadm reset --force
+      ignore_errors: true
+    
+    - name: Remove kubeconfig directory
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /root/.kube
+        - /home/{{ ansible_user }}/.kube
+      ignore_errors: true
+    
+    - name: Remove Kubernetes configuration files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/kubernetes
+        - /var/lib/etcd
+        - /var/lib/kubelet
+        - /var/lib/dockershim
+        - /var/run/kubernetes
+        - /var/lib/cni
+        - /etc/cni/net.d
+      ignore_errors: true
+    
+    - name: Remove join commands file
+      ansible.builtin.file:
+        path: /root/kubeadm-join-cmds.txt
+        state: absent
+      ignore_errors: true
+    
+    - name: Stop and disable kubelet
+      ansible.builtin.systemd:
+        name: kubelet
+        state: stopped
+        enabled: false
+      ignore_errors: true
+    
+    - name: Reset containerd
+      ansible.builtin.shell: |
+        systemctl stop containerd
+        rm -rf /var/lib/containerd/*
+        systemctl start containerd
+      ignore_errors: true
+    
+    - name: Clean up iptables rules
+      ansible.builtin.shell: |
+        iptables -F && iptables -t nat -F && iptables -t mangle -F && iptables -X
+        ip6tables -F && ip6tables -t nat -F && ip6tables -t mangle -F && ip6tables -X
+      ignore_errors: true
+    
+    - name: Remove CNI interfaces
+      ansible.builtin.shell: |
+        ip link delete cni0 2>/dev/null || true
+        ip link delete flannel.1 2>/dev/null || true
+        ip link delete docker0 2>/dev/null || true
+      ignore_errors: true
