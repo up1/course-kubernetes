@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: hello
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: hello
@@ -14,13 +14,14 @@ spec:
     spec:
       containers:
         - name: hello
-          image: hello:200
+          image: somkiat/demo-web:500
           ports:
             - containerPort: 80
           resources:
             limits:
-              cpu: "0.5"
+              cpu: "500m"
               memory: "256Mi"
             requests:
-              cpu: "0.2"
-              memory: "128Mi"
+              cpu: "200m"
+              memory: "128Mi" 
+          
