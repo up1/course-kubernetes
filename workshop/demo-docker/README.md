@@ -50,6 +50,9 @@ $docker service scale dev_hello=5
 $minikube start
 $minikube status
 
+# Install ingress
+$minikube addons enable ingress
+
 # Check nodes in cluster
 $kubectl get node
 
