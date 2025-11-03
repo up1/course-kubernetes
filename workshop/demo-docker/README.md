@@ -46,5 +46,10 @@ $docker service scale dev_hello=5
 
 ## 4. Kubernetes
 ```
+$kubectl get node
 
+$kubectl apply -f hello_deployment.yml
+$kubectl get pod
+$kubectl get deployment
+$kubectl get rs
 ```
