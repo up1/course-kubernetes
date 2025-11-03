@@ -46,6 +46,9 @@ $docker service scale dev_hello=5
 
 ## 4. Kubernetes
 ```
+$minikube start
+$minikube status
+
 $kubectl get node
 
 $kubectl apply -f hello_deployment.yml
@@ -55,4 +58,9 @@ $kubectl get rs
 
 $kubectl apply -f service_service.yml
 $kubectl get service
+
+#Expose port of service
+$kubectl port-forward service/service 8080:80
+
+$curl http://localhost:8080/
 ```
