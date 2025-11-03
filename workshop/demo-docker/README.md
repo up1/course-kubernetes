@@ -46,11 +46,14 @@ $docker service scale dev_hello=5
 
 ## 4. Kubernetes
 ```
+# Start minikune
 $minikube start
 $minikube status
 
+# Check nodes in cluster
 $kubectl get node
 
+# Deploy 
 $kubectl apply -f hello_deployment.yml
 $kubectl get pod
 $kubectl get deployment
@@ -59,7 +62,9 @@ $kubectl get rs
 $kubectl apply -f service_service.yml
 $kubectl get service
 
-#Expose port of service
+# Forward port of service
+# https://kubernetes.io/docs/tasks/access-application-cluster/port-forward-access-application-cluster/
+
 $kubectl port-forward service/service 8080:80
 
 $curl http://localhost:8080/
