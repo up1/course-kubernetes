@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: redis-pod
+  namespace: demo-nodejs
+  labels:
+    app: redis
+spec:
+  containers:
+  - name: redis
+    image: redis:8
+    ports:
+    - containerPort: 6379
+      name: redis
+    volumeMounts:
+    - name: redis-storage
+      mountPath: /data
+    - name: redis-config
+      mountPath: /usr/local/etc/redis
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "100m"
+      limits:
+        memory: "128Mi"
+        cpu: "200m"
+    livenessProbe:
+      exec:
+        command:
+        - redis-cli
+        - ping
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readinessProbe:
+      exec:
+        command:
+        - redis-cli
+        - ping
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 5
+      failureThreshold: 3
+  volumes:
+  - name: redis-storage
+    persistentVolumeClaim:
+      claimName: redis-pvc
+  - name: redis-config
+    configMap:
+      name: redis-config

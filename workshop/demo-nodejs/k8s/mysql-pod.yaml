@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mysql-pod
+  namespace: demo-nodejs
+  labels:
+    app: mysql
+spec:
+  containers:
+  - name: mysql
+    image: mysql:8
+    ports:
+    - containerPort: 3306
+      name: mysql
+    env:
+    - name: MYSQL_ROOT_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: mysql-secret
+          key: MYSQL_ROOT_PASSWORD
+    - name: MYSQL_DATABASE
+      valueFrom:
+        configMapKeyRef:
+          name: mysql-config
+          key: MYSQL_DATABASE
+    - name: MYSQL_USER
+      valueFrom:
+        configMapKeyRef:
+          name: mysql-config
+          key: MYSQL_USER
+    - name: MYSQL_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: mysql-secret
+          key: MYSQL_PASSWORD
+    volumeMounts:
+    - name: mysql-storage
+      mountPath: /var/lib/mysql
+    - name: mysql-init
+      mountPath: /docker-entrypoint-initdb.d
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "200m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+    startupProbe:
+      exec:
+        command:
+        - mysqladmin
+        - ping
+        - -h
+        - localhost
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 30
+    livenessProbe:
+      exec:
+        command:
+        - mysqladmin
+        - ping
+        - -h
+        - localhost
+      initialDelaySeconds: 60
+      periodSeconds: 20
+      timeoutSeconds: 10
+      failureThreshold: 3
+    readinessProbe:
+      exec:
+        command:
+        - mysqladmin
+        - ping
+        - -h
+        - localhost
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 10
+      failureThreshold: 3
+  volumes:
+  - name: mysql-storage
+    persistentVolumeClaim:
+      claimName: mysql-pvc
+  - name: mysql-init
+    configMap:
+      name: mysql-config
+      items:
+      - key: init.sql
+        path: init.sql

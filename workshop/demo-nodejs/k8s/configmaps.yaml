@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config
+  namespace: demo-nodejs
+data:
+  MYSQL_DATABASE: "mydatabase"
+  MYSQL_USER: "user"
+  init.sql: |
+    -- Create users table
+    CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    );
+
+    -- Insert sample data
+    INSERT INTO users (name, email) VALUES 
+        ('John Doe', 'john@example.com'),
+        ('Jane Smith', 'jane@example.com'),
+        ('Bob Johnson', 'bob@example.com'),
+        ('Alice Brown', 'alice@example.com'),
+        ('Charlie Wilson', 'charlie@example.com')
+    ON DUPLICATE KEY UPDATE name=VALUES(name);
+
+    -- Grant permissions to user from any host
+    GRANT ALL PRIVILEGES ON mydatabase.* TO 'user'@'%';
+    FLUSH PRIVILEGES;
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: demo-nodejs
+data:
+  redis.conf: |
+    # Redis configuration
+    maxmemory 128mb
+    maxmemory-policy allkeys-lru
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: demo-nodejs
+data:
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  DATABASE_HOST: "mysql-service"
+  DATABASE_PORT: "3306"
+  DATABASE_NAME: "mydatabase"
+  DATABASE_USER: "user"

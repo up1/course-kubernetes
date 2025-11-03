@@ -18,13 +18,21 @@ const httpRequestCounter = new client.Counter({
 
 // ====== Environment Variables ======
 const PORT = process.env.APP_PORT || 3000;
-const DATABASE_URL = process.env.DATABASE_URL || "mysql://user:password@localhost:3306/mydatabase";
+const DATABASE_HOST = process.env.DATABASE_HOST || "localhost";
+const DATABASE_PORT = process.env.DATABASE_PORT || 3306;
+const DATABASE_NAME = process.env.DATABASE_NAME || "mydatabase";
+const DATABASE_USER = process.env.DATABASE_USER || "user";
+const DATABASE_PASSWORD = process.env.DATABASE_PASSWORD || "password";
 const REDIS_HOST = process.env.REDIS_HOST || "localhost";
 const REDIS_PORT = process.env.REDIS_PORT || 6379;
 
 // ====== MySQL Connection ======
 const pool = mysql.createPool({
-  uri: DATABASE_URL,
+  host: DATABASE_HOST,
+  port: DATABASE_PORT,
+  database: DATABASE_NAME,
+  user: DATABASE_USER,
+  password: DATABASE_PASSWORD,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
