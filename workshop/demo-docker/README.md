@@ -52,4 +52,7 @@ $kubectl apply -f hello_deployment.yml
 $kubectl get pod
 $kubectl get deployment
 $kubectl get rs
+
+$kubectl apply -f service_service.yml
+$kubectl get service
 ```
