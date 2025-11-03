@@ -93,9 +93,21 @@ kubectl get service -n demo-nodejs
 #Forward port of api-service with port=3000
 kubectl port-forward svc/api-service 3000:3000 -n demo-nodejs
 
+curl http://localhost:3000
+curl http://localhost:3000/api/users
+
 # 6. Create ingress
 minikube addons enable ingress
 kubectl apply -f k8s/api-ingress.yaml
+kubectl get ingress -n demo-nodejs
+
+# Start tunnel for ingress
+minikube tunnel
+
+# Config host file
+127.0.0.1.  demo-nodejs.local
+
+$curl http://demo-nodejs.local
 ```
 
 ## Access the Application

@@ -5,8 +5,8 @@ metadata:
   namespace: demo-nodejs
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
-    kubernetes.io/ingress.class: nginx
 spec:
+  ingressClassName: nginx
   rules:
   - host: demo-nodejs.local
     http:
