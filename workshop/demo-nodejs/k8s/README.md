@@ -9,6 +9,7 @@ The deployment consists of:
 - **MySQL Database**: MySQL 8 with persistent storage
 - **Redis Cache**: Redis 8 with persistent storage
 - **NGINX Ingress**: For external access
+  - https://kubernetes.github.io/ingress-nginx/deploy/baremetal/ 
 
 ## Files Overview
 
