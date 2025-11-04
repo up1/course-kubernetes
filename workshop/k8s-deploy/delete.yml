@@ -62,3 +62,11 @@
         ip link delete flannel.1 2>/dev/null || true
         ip link delete docker0 2>/dev/null || true
       ignore_errors: true
+    - name: REmove kubeadm, kubelet and kubectl
+      ansible.builtin.package:
+        name:
+          - kubeadm
+          - kubelet
+          - kubectl
+        state: absent
+      ignore_errors: true
