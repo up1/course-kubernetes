@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-user
+  namespace: kubernetes-dashboard # or your dashboard's namespace
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: admin-user
+  namespace: kubernetes-dashboard # or your dashboard's namespace
+
+---
+# To get the token for the admin-user ServiceAccount, run the following command:
+# kubectl apply -f k8s/roles.yml
+# kubectl -n kubernetes-dashboard create token admin-user
+# kubectl -n kubernetes-dashboard port-forward svc/kubernetes-dashboard-kong-proxy 8443:443 --address 0.0.0.0
